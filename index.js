@@ -25,7 +25,7 @@ require("./src/db/mongoose");
 
 app.use(morgan("combined"));
 app.use(bodyParser.json({ type: "*/*" }));
-app.use(cors(corsOptions));
+app.use(cors());
 
 router(app);
 
