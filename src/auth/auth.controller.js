@@ -1,12 +1,14 @@
 const { pick, isNil } = require("lodash");
-const jwt = require("jwt-simple");
+const jwt = require("jsonwebtoken");
 
 const config = require("../config");
 const User = require("../user/user.model");
 
 function tokenForUser(user) {
   const timestamp = new Date(Date.now()).getTime();
-  return jwt.encode({ sub: user.id, iat: timestamp }, config.JWT_SECRET);
+  return jwt.sign({ sub: user.id, iat: timestamp }, config.JWT_SECRET, {
+    expiresIn: "1h"
+  });
 }
 
 exports.signup = async (req, res, next) => {
@@ -39,4 +41,8 @@ exports.signup = async (req, res, next) => {
   } catch (e) {
     return next(e);
   }
+};
+
+exports.signin = function(req, res, next) {
+  res.send({ token: tokenForUser(req.user) });
 };
