@@ -1,4 +1,5 @@
 const Auth = require("../auth/auth.controller");
+const Servers = require("../servers/servers.controller");
 const passport = require("passport");
 
 require("../auth/passportJwtStrategy.service");
@@ -13,4 +14,6 @@ module.exports = app => {
   });
   app.post("/signup", Auth.signup);
   app.post("/signin", requireSignin, Auth.signin);
+  app.get("/servers", requireAuth, Servers.serversList);
+  app.post("/servers", requireAuth, Servers.createServer);
 };

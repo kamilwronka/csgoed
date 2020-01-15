@@ -2,7 +2,12 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcrypt-nodejs");
 const { Schema, model } = mongoose;
 
+const ServerSchema = require("../servers/servers.model");
+
 const userSchema = new Schema({
+  name: {
+    type: String
+  },
   email: {
     required: true,
     type: String,
@@ -12,7 +17,8 @@ const userSchema = new Schema({
   password: {
     required: true,
     type: String
-  }
+  },
+  servers: [ServerSchema]
 });
 
 userSchema.pre("save", function(next) {
