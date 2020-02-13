@@ -1,5 +1,6 @@
 const { pick, max, isEmpty } = require("lodash");
-const Docker = require('dockerode');
+const Docker = require("dockerode");
+const ip = require("ip").address();
 
 const User = require("../user/user.model");
 
@@ -8,105 +9,148 @@ const docker = new Docker({
 });
 
 exports.serversList = async (req, res, next) => {
-  //   const servers = pick(req.user, "servers");
-  //   res.send(servers);
-  // let containerList = await docker.container
-  //   .list();
-
-  //   const statuses = containerList.map(container => {
-  //     return container.data;
-  //   })
-
-  //   res.send(statuses);
-  //   // console.log(statuses);
-
-  docker.listContainers({}, (error, containers) => {
+  docker.listContainers({ all: true }, (error, containers) => {
     if (error) {
       res.status(500).send({ message: "Internal server error", status: 500 });
       return;
     }
 
-    console.log(containers);
-    res.send(containers);
-  })
+    const desiredData = containers.map(container => {
+      return { ...container, Ip: ip };
+    });
 
+    res.send(desiredData);
+  });
 };
 
-exports.createServer = async (req, res, next) => {
-  const { name, game } = req.body;
-  let canProceed = true;
-  let usedPorts = [];
+exports.createServer = socket => {
+  socket.on("createServer", async data => {
+    const { name, game } = data;
+    let canProceed = true;
+    let usedPorts = [];
 
-  let containerList = await docker.listContainers();
-  console.log(containerList)
+    // console.log("createe");
 
-  containerList.forEach(container => {
-    if (container.Names.includes(`/${name}`)) {
-      canProceed = false;
+    let containerList = await docker.listContainers();
+
+    containerList.forEach(container => {
+      if (container.Names.includes(`/${name}`)) {
+        canProceed = false;
+      }
+
+      usedPorts.push(...container.Ports.map(port => port.PublicPort));
+    });
+
+    if (!canProceed) {
+      return socket.emit("createServerError", {
+        message: "Server with this name already exists."
+      });
     }
 
-    usedPorts.push(...container.Ports.map(port => port.PublicPort));
-  })
+    const nextPort = !isEmpty(usedPorts) ? max(usedPorts) + 1 : 3000;
 
-  if (!canProceed) {
-    return res.status(400).send({ status: 400, message: "Server with this name already exists." })
-  }
-
-  const nextPort = !isEmpty(usedPorts) ? max(usedPorts) + 1 : 3000;
-
-  const options = {
-    name,
-    HostConfig: {
-      PortBindings: {
-        "3000/tcp": [{ HostPort: String(nextPort) }]
+    const options = {
+      Cmd: ["--name=dupa"],
+      Image: "csgoed-image",
+      name,
+      AttachStdin: true,
+      Tty: true,
+      HostConfig: {
+        PortBindings: {
+          "3000/tcp": [{ HostPort: String(nextPort) }]
+        }
+      },
+      ExposedPorts: {
+        "3000/tcp": {}
       }
-    },
-    ExposedPorts: {
-      "3000/tcp": {
-      }
+    };
+
+    if (canProceed) {
+      docker.createContainer(options, (err, container) => {
+        container.attach({ stream: true, stdout: true, stderr: true }, function(
+          err,
+          stream
+        ) {
+          stream.pipe(process.stdout);
+          stream.on("data", data => {
+            socket.emit("createServerLogs", data.toString("utf8"));
+          });
+        });
+
+        container.start({ name }, () => {
+          socket.emit("createServer", { message: "Created " });
+        });
+      });
     }
-  }
-
-  if (canProceed) {
-    docker.run('csgoed-image', [], process.stdout, options, function (err, data) {
-      console.log(err)
-    })
-  }
-
-  // let container = await docker.container.create({
-  //   Image: 'csgoed-image',
-  //   name: name,
-  //   port: 3003
-  // })
-  // await container.start()
-  // // .then(container => container.start())
-
-  res.send({ canProceed, usedPorts, message: "Container is now running" })
-
-  // docker.container.create({
-  //   Image: 'csgoed-image',
-  //   name: ''
-  // })
-  //   .then(container => container.start())
-  //   .then(container => container.stop())
-  //   .then(container => container.restart())
-  //   .then(container => container.delete({ force: true }))
-  //   .catch(error => console.log(error));
-
-
-  // const newServer = {
-  //   name,
-  //   game,
-  //   status: "offline",
-  //   ip: "127.0.0.1"
-  // };
-
-  // User.findOneAndUpdate(
-  //   { _id: req.user._id },
-  //   { $push: { servers: newServer } }
-  // ).then(() => {
-  //   User.findOne({ _id: req.user._id }).then(user => {
-  //     res.send(pick(user, ["servers"]));
-  //   });
-  // });
+  });
 };
+
+exports.deleteServer = socket => {
+  socket.on("deleteServer", async id => {
+    let container = await docker.getContainer(id);
+
+    try {
+      socket.emit("deleteServerLogs", id, "Stopping server...");
+      await container.stop();
+      socket.emit("deleteServerLogs", id, "Server stopped.");
+      socket.emit("deleteServerLogs", id, "Removing server...");
+      await container.remove();
+      socket.emit("deleteServerLogs", id, "Server removed.");
+      socket.emit("deleteServer", id);
+    } catch (error) {
+      if (error.reason === "container already stopped") {
+        socket.emit("deleteServerLogs", id, "Removing server...");
+        await container.remove();
+        socket.emit("deleteServerLogs", id, "Server removed.");
+        socket.emit("deleteServer", id);
+      }
+    }
+  });
+};
+
+exports.stopServer = socket => {
+  socket.on("stopServer", async id => {
+    let container = await docker.getContainer(id);
+
+    console.log(container);
+
+    try {
+      socket.emit("stopServerLogs", id, "Stopping server...");
+      await container.stop();
+      socket.emit("stopServerLogs", id, "exited");
+      socket.emit("stopServer", id);
+    } catch (error) {
+      socket.emit("stopServerLogs", id, error.reason);
+    }
+  });
+};
+
+exports.startServer = socket => {
+  socket.on("startServer", async id => {
+    let container = await docker.getContainer(id);
+
+    try {
+      socket.emit("startServerLogs", id, "Starting server...");
+      await container.start();
+      socket.emit("startServerLogs", id, "running");
+      socket.emit("startServer", id);
+    } catch (error) {
+      socket.emit("startServerLogs", id, error.reason);
+    }
+  });
+};
+
+// exports.deleteServer = async (req, res, next) => {
+//   const { id } = req.params;
+//   let container = await docker.getContainer(id);
+
+//   try {
+//     await container.stop();
+//     await container.remove();
+
+//     res.send({ message: "Container successfully removed.", id });
+//   } catch (e) {
+//     res.status(500).send({ message: "Internal server error", status: 500 });
+//     return;
+//   }
+// };

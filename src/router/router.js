@@ -1,7 +1,7 @@
 const Auth = require("../auth/auth.controller");
 const Servers = require("../servers/servers.controller");
 const passport = require("passport");
-const Games = require('../games/games.controller');
+const Games = require("../games/games.controller");
 
 require("../auth/passportJwtStrategy.service");
 require("../auth/passportLocalStrategy.service");
@@ -15,7 +15,8 @@ module.exports = app => {
   });
   app.post("/signup", Auth.signup);
   app.post("/signin", requireSignin, Auth.signin);
+
   app.get("/servers", Servers.serversList);
-  app.post("/servers", requireAuth, Servers.createServer);
-  app.get('/games', Games.gamesList)
+
+  app.get("/games", Games.gamesList);
 };
