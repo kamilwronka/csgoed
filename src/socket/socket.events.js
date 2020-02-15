@@ -5,4 +5,5 @@ module.exports = socket => {
   Servers.createServer(socket);
   Servers.stopServer(socket);
   Servers.startServer(socket);
+  Servers.restartServer(socket);
 };

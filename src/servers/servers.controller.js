@@ -42,7 +42,7 @@ exports.createServer = socket => {
     });
 
     if (!canProceed) {
-      return socket.emit("createServerError", {
+      return socket.emit("basicServerLogs", {
         message: "Server with this name already exists."
       });
     }
@@ -78,7 +78,7 @@ exports.createServer = socket => {
         });
 
         container.start({ name }, () => {
-          socket.emit("createServer", { message: "Created " });
+          socket.emit("createServer", { message: "Created", type: "success" });
         });
       });
     }
@@ -90,19 +90,43 @@ exports.deleteServer = socket => {
     let container = await docker.getContainer(id);
 
     try {
-      socket.emit("deleteServerLogs", id, "Stopping server...");
+      socket.emit("basicServerLogs", {
+        id,
+        message: "Stopping server...",
+        type: "info"
+      });
       await container.stop();
-      socket.emit("deleteServerLogs", id, "Server stopped.");
-      socket.emit("deleteServerLogs", id, "Removing server...");
+      socket.emit("basicServerLogs", {
+        id,
+        message: "Server stopped.",
+        type: "success"
+      });
+      socket.emit("basicServerLogs", {
+        id,
+        message: "Removing server...",
+        type: "info"
+      });
       await container.remove();
-      socket.emit("deleteServerLogs", id, "Server removed.");
+      socket.emit("basicServerLogs", {
+        id,
+        message: "Server removed.",
+        type: "success"
+      });
       socket.emit("deleteServer", id);
     } catch (error) {
       if (error.reason === "container already stopped") {
-        socket.emit("deleteServerLogs", id, "Removing server...");
+        socket.emit("basicServerLogs", {
+          id,
+          message: "Removing server...",
+          type: "info"
+        });
         await container.remove();
-        socket.emit("deleteServerLogs", id, "Server removed.");
-        socket.emit("deleteServer", id);
+        socket.emit("basicServerLogs", {
+          id,
+          message: "Server removed.",
+          type: "success"
+        });
+        socket.emit("deleteServer", { id, status: "deleted" });
       }
     }
   });
@@ -115,12 +139,24 @@ exports.stopServer = socket => {
     console.log(container);
 
     try {
-      socket.emit("stopServerLogs", id, "Stopping server...");
+      socket.emit("basicServerLogs", {
+        id,
+        message: "Stopping server...",
+        type: "info"
+      });
       await container.stop();
-      socket.emit("stopServerLogs", id, "exited");
-      socket.emit("stopServer", id);
+      socket.emit("basicServerLogs", {
+        id,
+        message: "exited",
+        type: "success"
+      });
+      socket.emit("stopServer", { id, status: "success" });
     } catch (error) {
-      socket.emit("stopServerLogs", id, error.reason);
+      socket.emit("basicServerLogs", {
+        id,
+        message: error.reason,
+        type: "error"
+      });
     }
   });
 };
@@ -130,27 +166,51 @@ exports.startServer = socket => {
     let container = await docker.getContainer(id);
 
     try {
-      socket.emit("startServerLogs", id, "Starting server...");
+      socket.emit("basicServerLogs", {
+        id,
+        message: "Starting server...",
+        type: "info"
+      });
       await container.start();
-      socket.emit("startServerLogs", id, "running");
-      socket.emit("startServer", id);
+      socket.emit("basicServerLogs", {
+        id,
+        message: "running",
+        type: "success"
+      });
+      socket.emit("startServer", { id, status: "success" });
     } catch (error) {
-      socket.emit("startServerLogs", id, error.reason);
+      socket.emit("basicServerLogs", {
+        id,
+        message: error.reason,
+        type: "error"
+      });
     }
   });
 };
 
-// exports.deleteServer = async (req, res, next) => {
-//   const { id } = req.params;
-//   let container = await docker.getContainer(id);
+exports.restartServer = socket => {
+  socket.on("restartServer", async id => {
+    try {
+      let container = await docker.getContainer(id);
 
-//   try {
-//     await container.stop();
-//     await container.remove();
-
-//     res.send({ message: "Container successfully removed.", id });
-//   } catch (e) {
-//     res.status(500).send({ message: "Internal server error", status: 500 });
-//     return;
-//   }
-// };
+      socket.emit("basicServerLogs", {
+        id,
+        type: "info",
+        message: "Restarting server..."
+      });
+      await container.restart();
+      socket.emit("basicServerLogs", {
+        id,
+        type: "success",
+        message: "Server has been restarted."
+      });
+      socket.emit("restartServer", { status: "success", id });
+    } catch (error) {
+      socket.emit("basicServerLogs", {
+        id,
+        type: "error",
+        message: `Unable to restart server. \n ${error.reason}`
+      });
+    }
+  });
+};
