@@ -1,6 +1,8 @@
 const { pick, max, isEmpty } = require("lodash");
 const Docker = require("dockerode");
 const ip = require("ip").address();
+const net = require("net");
+const serverConfigs = require("../serverConfigs");
 
 const User = require("../user/user.model");
 
@@ -20,6 +22,28 @@ exports.serversList = async (req, res, next) => {
     });
 
     res.send(desiredData);
+  });
+};
+
+exports.singleServerConnection = socket => {
+  socket.on("singleServerConnection", async data => {
+    // const client = new net.Socket();
+    // client.connect(3333, "127.0.0.1", () => {
+    //   socket.emit("basicServerLogs", {
+    //     message: "connected",
+    //     type: "success",
+    //     id: data.id
+    //   });
+    // });
+    // const msg = { name: data.id + "_log", message: "sumting" };
+    // client.write(JSON.stringify(msg));
+    // console.log("write");
+    // client.on("data", data => {
+    //   console.log("Received", data);
+    //   const desiredData = data.toString("utf8");
+    //   console.log(desiredData);
+    //   socket.emit("basicServerLogs", { message: desiredData, type: "info" });
+    // });
   });
 };
 
@@ -43,43 +67,97 @@ exports.createServer = socket => {
 
     if (!canProceed) {
       return socket.emit("basicServerLogs", {
-        message: "Server with this name already exists."
+        message: "Server with this name already exists.",
+        type: "error"
       });
     }
 
-    const nextPort = !isEmpty(usedPorts) ? max(usedPorts) + 1 : 3000;
+    const serverConfig = serverConfigs[`${game}`](usedPorts);
+    console.log(serverConfig.networkSettings);
 
     const options = {
-      Cmd: ["--name=dupa"],
       Image: "csgoed-image",
       name,
       AttachStdin: true,
       Tty: true,
-      HostConfig: {
-        PortBindings: {
-          "3000/tcp": [{ HostPort: String(nextPort) }]
-        }
-      },
-      ExposedPorts: {
-        "3000/tcp": {}
-      }
+      ...serverConfig.networkSettings,
+      Env: [
+        `PORT=3000`,
+        `MAPPED_PORT=${serverConfig.networkSettings.HostConfig.PortBindings["3000/tcp"][0].HostPort}`
+      ]
     };
 
+    console.log(options);
+
     if (canProceed) {
-      docker.createContainer(options, (err, container) => {
+      docker.createContainer(options, async (err, container) => {
         container.attach({ stream: true, stdout: true, stderr: true }, function(
           err,
           stream
         ) {
           stream.pipe(process.stdout);
           stream.on("data", data => {
-            socket.emit("createServerLogs", data.toString("utf8"));
+            const dataString = data.toString("utf8");
+            socket.emit("createServerLogs", dataString);
+
+            if (data.toString("utf8").includes("listening")) {
+              const client = new net.Socket({
+                writable: true,
+                allowHalfOpen: true
+              });
+
+              client.connect(
+                serverConfig.networkSettings.HostConfig.PortBindings[
+                  "3000/tcp"
+                ][0].HostPort,
+                "0.0.0.0"
+              );
+
+              const msg = JSON.stringify({
+                name: "_installServer",
+                exec: serverConfig.exec
+              });
+
+              console.log(msg);
+
+              client.on("data", data => {
+                socket.emit("createServerLogs", data.toString("utf8"));
+              });
+
+              client.on("connect", () => {
+                socket.emit("basicServerLogs", {
+                  message: "connected",
+                  type: "success",
+                  id: container.id
+                });
+
+                // client.write("chuj");
+              });
+
+              client.write(msg);
+
+              client.on("close", err => {
+                console.log("had err", err);
+                // client.connect(
+                //   serverConfig.networkSettings.HostConfig.PortBindings[
+                //     "3000/tcp"
+                //   ][0].HostPort,
+                //   "127.0.0.1"
+                // );
+              });
+
+              client.on("error", err => {
+                console.log(err);
+              });
+            }
           });
         });
 
-        container.start({ name }, () => {
-          socket.emit("createServer", { message: "Created", type: "success" });
-        });
+        await container.start();
+        console.log("started");
+
+        console.log(container.id);
+        socket.emit("createServer", { message: "Created", type: "success" });
       });
     }
   });
