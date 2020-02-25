@@ -1,17 +1,26 @@
 const express = require("express");
-const http = require("http");
 const bodyParser = require("body-parser");
+const fs = require("fs");
+const https = require("https");
 const morgan = require("morgan");
 const cors = require("cors");
 const router = require("./src/router/router");
 const app = express();
-const server = require("http").createServer(app);
-const io = require("socket.io")(server);
 const socketEvents = require("./src/socket/socket.events");
+const config = require("./src/config");
 
-const PORT = process.env.PORT || 4000;
+const options = {
+  key: fs.readFileSync(config.PRIVATE_KEY),
+  cert: fs.readFileSync(config.CERT)
+};
 
-const whitelist = ["http://localhost:3000"];
+const server = https.createServer(options, app);
+const io = require("socket.io")(server);
+
+const PORT = process.env.PORT || 80;
+const production = process.env.NODE_ENV === "production";
+
+const whitelist = ["http://localhost:3000", "https://csgoed.com"];
 const corsOptions = {
   origin: function(origin, callback) {
     if (whitelist.indexOf(origin) !== -1) {
@@ -26,7 +35,7 @@ require("./src/db/mongoose");
 
 app.use(morgan("combined"));
 app.use(bodyParser.json({ type: "*/*" }));
-app.use(cors());
+app.use(cors(production ? corsOptions : undefined));
 
 router(app);
 
