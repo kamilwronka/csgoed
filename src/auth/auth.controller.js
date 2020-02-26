@@ -100,7 +100,9 @@ exports.sendActivationMail = function(req, res, next) {
     isNil(req.user.resendActivationMailTime) ||
     req.user.resendActivationMailTime + resendCooldown <= timestamp
   ) {
-    const newActivationToken = User.findByIdAndUpdate(
+    const newActivationToken = helpers.generateActivateToken(req.user._id);
+
+    User.findByIdAndUpdate(
       { _id: req.user._id },
       { activateToken: newActivationToken, resendActivationMailTime: timestamp }
     ).then(() => {
@@ -167,12 +169,9 @@ exports.activateAccount = function(req, res, next) {
         });
     })
     .catch(e => {
-      res
-        .status(400)
-        .send({
-          message:
-            "Unable to activate account or account is already activated.",
-          status: 400
-        });
+      res.status(400).send({
+        message: "Unable to activate account or account is already activated.",
+        status: 400
+      });
     });
 };
