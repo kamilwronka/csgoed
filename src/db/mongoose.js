@@ -9,7 +9,8 @@ const MONGODB_URI = production
 mongoose.connect(`${MONGODB_URI}`, {
   useNewUrlParser: true,
   useCreateIndex: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  useFindAndModify: true
 });
 
 mongoose.connection

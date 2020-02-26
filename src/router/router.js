@@ -2,6 +2,7 @@ const Auth = require("../auth/auth.controller");
 const Servers = require("../servers/servers.controller");
 const passport = require("passport");
 const Games = require("../games/games.controller");
+const User = require("../user/user.controller");
 
 require("../auth/passportJwtStrategy.service");
 require("../auth/passportLocalStrategy.service");
@@ -15,6 +16,10 @@ module.exports = app => {
   });
   app.post("/signup", Auth.signup);
   app.post("/signin", requireSignin, Auth.signin);
+  app.post("/activate-email", requireAuth, Auth.sendActivationMail);
+  app.post("/activate", Auth.activateAccount);
+
+  app.get("/user", requireAuth, User.user);
 
   app.get("/servers", Servers.serversList);
 

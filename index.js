@@ -7,12 +7,6 @@ const cors = require("cors");
 const router = require("./src/router/router");
 const app = express();
 const socketEvents = require("./src/socket/socket.events");
-const config = require("./src/config");
-
-// const options = {
-//   key: fs.readFileSync(config.PRIVATE_KEY),
-//   cert: fs.readFileSync(config.CERT)
-// };
 
 const server = http.createServer(app);
 const io = require("socket.io")(server);
@@ -49,7 +43,3 @@ process.stdout.on("resize", console.log);
 server.listen(PORT, "0.0.0.0", () => {
   console.log("Server listening on port %s", PORT);
 });
-
-// server.listen(80, "0.0.0.0", () => {
-//   console.log("Server listening on port %s", 80);
-// });

@@ -6,7 +6,8 @@ const ServerSchema = require("../servers/servers.model");
 
 const userSchema = new Schema({
   name: {
-    type: String
+    type: String,
+    required: true
   },
   email: {
     required: true,
@@ -18,6 +19,17 @@ const userSchema = new Schema({
     required: true,
     type: String
   },
+  activateToken: {
+    type: String
+  },
+  activated: {
+    type: Boolean,
+    required: true
+  },
+  resendActivationMailTime: {
+    type: Number
+  },
+  loginIPAddresses: { type: Array },
   servers: [ServerSchema]
 });
 
