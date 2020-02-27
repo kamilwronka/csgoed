@@ -29,6 +29,11 @@ const userSchema = new Schema({
   resendActivationMailTime: {
     type: Number
   },
+  payments: {
+    balance: { type: Number, default: 0 },
+    currency: String,
+    history: []
+  },
   loginIPAddresses: { type: Array },
   servers: [ServerSchema]
 });

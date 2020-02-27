@@ -3,6 +3,7 @@ const Servers = require("../servers/servers.controller");
 const passport = require("passport");
 const Games = require("../games/games.controller");
 const User = require("../user/user.controller");
+const Payments = require("../payments/payments.controller");
 
 require("../auth/passportJwtStrategy.service");
 require("../auth/passportLocalStrategy.service");
@@ -20,6 +21,9 @@ module.exports = app => {
   app.post("/activate", Auth.activateAccount);
 
   app.get("/user", requireAuth, User.user);
+  app.get("/user/payments", requireAuth, User.userPayments);
+
+  app.post("/payments/stripe", requireAuth, Payments.handleStripePayment);
 
   app.get("/servers", Servers.serversList);
 
