@@ -141,36 +141,17 @@ exports.sendActivationMail = function(req, res, next) {
 
 exports.activateAccount = function(req, res, next) {
   const { token } = pick(req.body, ["token"]);
-  const decodedToken = helpers.decodeActivateToken(token);
 
-  User.findOne({ activateToken: token })
-    .then(user => {
-      if (user.activated) {
-        return res
-          .status(400)
-          .send({ status: 400, message: "Account is already activated." });
-      }
-
-      user.activateToken = null;
-      user.activated = true;
-
-      user
-        .save()
-        .then(() => {
-          res.send({ message: "Account has been activated." });
-        })
-        .catch(e => {
-          console.log(e);
-          res.status(400).send({
-            status: 400,
-            message:
-              "Unable to activate account or account is already activated."
-          });
-        });
+  User.findOneAndUpdate(
+    { activateToken: token },
+    { activated: true, activateToken: null }
+  )
+    .then(() => {
+      res.send({ message: "Account has been activated." });
     })
     .catch(e => {
       res.status(400).send({
-        message: "Unable to activate account or account is already activated.",
+        message: "Unable to activate account or token is expired.",
         status: 400
       });
     });
