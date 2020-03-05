@@ -1,23 +1,48 @@
 const { isEmpty, max } = require("lodash");
 
-exports.teamspeak = usedPorts => {
-  const apiPort = !isEmpty(usedPorts) ? max(usedPorts) + 1 : 3000;
-  const tsPort = apiPort + 1;
+const helpers = require("../helpers");
 
-  return {
-    networkSettings: {
-      HostConfig: {
-        PortBindings: {
-          "3000/tcp": [{ HostPort: String(apiPort) }],
-          "9987/udp": [{ HostPort: String(tsPort) }]
+exports.teamspeak = ({ name, ownerId }) => {
+  return helpers
+    .getOpenPorts(3)
+    .then(ports => {
+      return {
+        regex: /(?<=token=)(.*)(?= )/g,
+        executeAfterCreation: stdout => {
+          return /(?<=token=)(.*)(?= )/g.match(stdout);
+        },
+        containerConfig: {
+          name,
+          Image: "teamspeak",
+          HostConfig: {
+            PortBindings: {
+              "9987/udp": [{ HostPort: String(ports[0]) }],
+              "9987/tcp": [{ HostPort: String(ports[0]) }],
+              "10011": [{ HostPort: String(ports[1]) }],
+              "30033": [{ HostPort: String(ports[2]) }]
+            }
+          },
+          ExposedPorts: {
+            "9987/udp": {},
+            "9987/tcp": {},
+            "10011": {},
+            "30033": {}
+          },
+          Env: ["TS3SERVER_LICENSE=accept"],
+          Tty: true,
+          AttachStdin: true,
+          Labels: {
+            ownerId: ownerId,
+            fileTransferPort: String(ports[2]),
+            serverQueryPort: String(ports[1]),
+            serverPort: String(ports[0]),
+            name: name,
+            game: "teamspeak"
+          }
         }
-      },
-      ExposedPorts: {
-        "9987/udp": {},
-        "3000/tcp": {}
-      }
-    },
-    exec:
-      "/bin/bash linuxgsm.sh ts3server && ./ts3server ai && ./serverfiles/ts3server_startscript.sh start"
-  };
+      };
+    })
+    .catch(error => {
+      throw new Error(error);
+    });
 };

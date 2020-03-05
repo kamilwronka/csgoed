@@ -1,4 +1,5 @@
 const Servers = require("../servers/servers.controller");
+const ServerManagement = require("../serverManagement/serverManagement.controller");
 
 module.exports = socket => {
   Servers.deleteServer(socket);
@@ -7,4 +8,5 @@ module.exports = socket => {
   Servers.startServer(socket);
   Servers.restartServer(socket);
   Servers.singleServerConnection(socket);
+  ServerManagement.ts3TokenRetrieve(socket);
 };

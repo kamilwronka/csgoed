@@ -1,28 +1,33 @@
 const { pick, max, isEmpty } = require("lodash");
-const Docker = require("dockerode");
 const ip = require("ip").address();
 const net = require("net");
 const serverConfigs = require("../serverConfigs");
 
+const docker = require("../docker/dockerInstance");
+
 const User = require("../user/user.model");
 
-const docker = new Docker({
-  socketPath: "/var/run/docker.sock"
-});
-
 exports.serversList = async (req, res, next) => {
-  docker.listContainers({ all: true }, (error, containers) => {
-    if (error) {
-      res.status(500).send({ message: "Internal server error", status: 500 });
-      return;
+  const userId = req.user._id;
+
+  console.log(userId);
+
+  docker.listContainers(
+    { all: true, filters: `{\"label\": [\"ownerId=${userId}\"]}` },
+    (error, containers) => {
+      console.log(error);
+      if (error) {
+        res.status(500).send({ message: "Internal server error", status: 500 });
+        return;
+      }
+
+      const desiredData = containers.map(container => {
+        return { ...container, Ip: ip };
+      });
+
+      res.send(desiredData);
     }
-
-    const desiredData = containers.map(container => {
-      return { ...container, Ip: ip };
-    });
-
-    res.send(desiredData);
-  });
+  );
 };
 
 exports.singleServerConnection = socket => {
@@ -44,6 +49,11 @@ exports.singleServerConnection = socket => {
     //   console.log(desiredData);
     //   socket.emit("basicServerLogs", { message: desiredData, type: "info" });
     // });
+    console.log(socket.user._id);
+
+    let containerList = await docker.listContainers({
+      label: `ownerId=${userId}`
+    });
   });
 };
 
@@ -51,7 +61,8 @@ exports.createServer = socket => {
   socket.on("createServer", async data => {
     const { name, game } = data;
     let canProceed = true;
-    let usedPorts = [];
+    const userId = socket.user._id;
+    const servers = socket.user.servers;
 
     // console.log("createe");
 
@@ -61,8 +72,6 @@ exports.createServer = socket => {
       if (container.Names.includes(`/${name}`)) {
         canProceed = false;
       }
-
-      usedPorts.push(...container.Ports.map(port => port.PublicPort));
     });
 
     if (!canProceed) {
@@ -72,93 +81,69 @@ exports.createServer = socket => {
       });
     }
 
-    const serverConfig = serverConfigs[`${game}`](usedPorts);
-    console.log(serverConfig.networkSettings);
-
-    const options = {
-      Image: "csgoed-image",
-      name,
-      AttachStdin: true,
-      Tty: true,
-      ...serverConfig.networkSettings,
-      Env: [
-        `PORT=3000`,
-        `MAPPED_PORT=${serverConfig.networkSettings.HostConfig.PortBindings["3000/tcp"][0].HostPort}`
-      ]
-    };
-
-    console.log(options);
-
     if (canProceed) {
-      docker.createContainer(options, async (err, container) => {
-        container.attach({ stream: true, stdout: true, stderr: true }, function(
-          err,
-          stream
-        ) {
-          stream.pipe(process.stdout);
-          stream.on("data", data => {
-            const dataString = data.toString("utf8");
-            socket.emit("createServerLogs", dataString);
+      const serverConfig = await serverConfigs[`${game}`]({
+        name,
+        ownerId: userId
+      });
 
-            if (data.toString("utf8").includes("listening")) {
-              const client = new net.Socket({
-                writable: true,
-                allowHalfOpen: true
-              });
+      // const attachStream = (err, stream) => {
+      //   stream.pipe(process.stdout);
+      //   stream.on("data", async data => {
+      //     const dataString = data.toString("utf8");
+      //     console.log(dataString);
 
-              client.connect(
-                serverConfig.networkSettings.HostConfig.PortBindings[
-                  "3000/tcp"
-                ][0].HostPort,
-                "0.0.0.0"
-              );
+      //     socket.emit("createServerLogs", dataString);
+      //   });
+      // };
 
-              const msg = JSON.stringify({
-                name: "_installServer",
-                exec: serverConfig.exec
-              });
-
-              console.log(msg);
-
-              client.on("data", data => {
-                socket.emit("createServerLogs", data.toString("utf8"));
-              });
-
-              client.on("connect", () => {
-                socket.emit("basicServerLogs", {
-                  message: "connected",
-                  type: "success",
-                  id: container.id
-                });
-
-                // client.write("chuj");
-              });
-
-              client.write(msg);
-
-              client.on("close", err => {
-                console.log("had err", err);
-                // client.connect(
-                //   serverConfig.networkSettings.HostConfig.PortBindings[
-                //     "3000/tcp"
-                //   ][0].HostPort,
-                //   "127.0.0.1"
-                // );
-              });
-
-              client.on("error", err => {
-                console.log(err);
-              });
-            }
-          });
-        });
+      try {
+        let container = await docker.createContainer(
+          serverConfig.containerConfig
+        );
 
         await container.start();
-        console.log("started");
+        let containerData = await container.inspect();
 
-        console.log(container.id);
-        socket.emit("createServer", { message: "Created", type: "success" });
-      });
+        await User.findByIdAndUpdate(userId, {
+          servers: { $push: containerData }
+        });
+        // socket.emit("createServer", { message: "Created", type: "success" });
+      } catch (error) {
+        if (error.statusCode === 404) {
+          console.log("No image present, pulling: %s", serverConfig.Image);
+          let stream = await docker.pull(serverConfig.Image);
+
+          stream.pipe(process.stdout);
+          stream.on("data", async data => {
+            const dataString = data.toString("utf8");
+            const dataJSON = JSON.parse(dataString);
+
+            if (dataJSON.status.includes("Downloaded newer image")) {
+              let container = await docker.createContainer(
+                serverConfig.containerConfig
+              );
+
+              let data = await container.start();
+              let containerData = await container.inspect();
+              // console.log(containerData);
+              await User.findByIdAndUpdate(userId, {
+                servers: { $push: containerData }
+              });
+
+              // socket.emit("createServer", {
+              //   message: "Created",
+              //   type: "success"
+              // });
+            }
+          });
+        }
+
+        return socket.emit("createServer", {
+          message: error.json.message,
+          type: "error"
+        });
+      }
     }
   });
 };

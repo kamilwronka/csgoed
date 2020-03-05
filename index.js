@@ -7,12 +7,18 @@ const cors = require("cors");
 const router = require("./src/router/router");
 const app = express();
 const socketEvents = require("./src/socket/socket.events");
+const passport = require("passport");
+const jsonwebtoken = require("jsonwebtoken");
+const config = require("./src/config");
 
 const server = http.createServer(app);
 const io = require("socket.io")(server);
 
 const PORT = process.env.PORT || 4000;
 const production = process.env.NODE_ENV === "production";
+
+//temp
+const verifyToken = require("./src/auth/socketIOStrategy");
 
 const whitelist = ["http://localhost:3000", "https://csgoed.com"];
 const corsOptions = {
@@ -34,8 +40,16 @@ app.use(cors(production ? corsOptions : {}));
 
 router(app);
 
-io.on("connection", socket => {
-  socketEvents(socket);
+io.on("connection", async socket => {
+  const token = socket.handshake.query.token;
+  const user = await verifyToken(token);
+
+  if (user) {
+    socketEvents(socket);
+    socket.user = user;
+  } else {
+    socket.disconnect(true);
+  }
 });
 
 process.stdout.on("resize", console.log);
