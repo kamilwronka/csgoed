@@ -108,7 +108,7 @@ exports.createServer = socket => {
         await User.findByIdAndUpdate(userId, {
           servers: { $push: containerData }
         });
-        // socket.emit("createServer", { message: "Created", type: "success" });
+        socket.emit("createServer", { message: "Created", type: "success" });
       } catch (error) {
         if (error.statusCode === 404) {
           console.log("No image present, pulling: %s", serverConfig.Image);
@@ -131,10 +131,10 @@ exports.createServer = socket => {
                 servers: { $push: containerData }
               });
 
-              // socket.emit("createServer", {
-              //   message: "Created",
-              //   type: "success"
-              // });
+              socket.emit("createServer", {
+                message: "Created",
+                type: "success"
+              });
             }
           });
         }
