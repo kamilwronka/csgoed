@@ -30,6 +30,13 @@ exports.serversList = async (req, res, next) => {
   );
 };
 
+exports.fetchServerInfo = async (req, res, next) => {
+  let container = await docker.getContainer(req.params.id);
+  let containerData = await container.inspect();
+
+  res.send(containerData);
+};
+
 exports.singleServerConnection = socket => {
   socket.on("singleServerConnection", async data => {
     // const client = new net.Socket();

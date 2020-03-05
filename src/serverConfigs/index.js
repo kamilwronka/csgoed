@@ -1,4 +1,5 @@
 const { isEmpty, max } = require("lodash");
+const ip = require("ip").address();
 
 const helpers = require("../helpers");
 
@@ -37,7 +38,8 @@ exports.teamspeak = ({ name, ownerId }) => {
             serverQueryPort: String(ports[1]),
             serverPort: String(ports[0]),
             name: name,
-            game: "teamspeak"
+            game: "teamspeak",
+            ip
           }
         }
       };

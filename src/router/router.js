@@ -26,6 +26,7 @@ module.exports = app => {
   app.post("/payments/stripe", requireAuth, Payments.handleStripePayment);
 
   app.get("/servers", requireAuth, Servers.serversList);
+  app.get("/servers/:id", requireAuth, Servers.fetchServerInfo);
 
   app.get("/games", Games.gamesList);
 };
