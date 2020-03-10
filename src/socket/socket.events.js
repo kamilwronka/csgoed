@@ -9,4 +9,5 @@ module.exports = socket => {
   Servers.restartServer(socket);
   Servers.singleServerConnection(socket);
   ServerManagement.ts3TokenRetrieve(socket);
+  ServerManagement.csgoInstallPlugin(socket);
 };
