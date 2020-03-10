@@ -73,6 +73,8 @@ exports.createServer = socket => {
 
     // console.log("createe");
 
+    console.log(data);
+
     let containerList = await docker.listContainers();
 
     containerList.forEach(container => {
@@ -88,7 +90,7 @@ exports.createServer = socket => {
       });
     }
 
-    if (canProceed) {
+    if (!canProceed) {
       const serverConfig = await serverConfigs[`${game}`]({
         name,
         ownerId: userId

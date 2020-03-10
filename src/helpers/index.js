@@ -11,6 +11,6 @@ exports.decodeActivateToken = token => {
   return Buffer.from(token, "base64").toString("utf8");
 };
 
-exports.getOpenPorts = amount => {
-  return portastic.find({ ...config.PORT_RANGE, retrieve: amount });
+exports.getOpenPorts = (amount, range) => {
+  return portastic.find({ ...(range || config.PORT_RANGE), retrieve: amount });
 };
