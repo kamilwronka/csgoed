@@ -11,7 +11,7 @@ require("../auth/passportLocalStrategy.service");
 const requireAuth = passport.authenticate("jwt", { session: false });
 const requireSignin = passport.authenticate("local", { session: false });
 
-module.exports = app => {
+module.exports = (app) => {
   app.get("/", requireAuth, (req, res) => {
     res.send("dupa");
   });
@@ -22,7 +22,9 @@ module.exports = app => {
 
   app.get("/user", requireAuth, User.user);
   app.get("/user/payments", requireAuth, User.userPayments);
+  app.get("/user/payment-methods", requireAuth, User.userPaymentMethods);
 
+  app.post("/payments/client-secret", requireAuth, Payments.getClientSecret);
   app.post("/payments/stripe", requireAuth, Payments.handleStripePayment);
 
   app.get("/servers", requireAuth, Servers.serversList);

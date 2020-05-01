@@ -12,7 +12,7 @@ const helpers = require("../helpers");
 function tokenForUser(user) {
   const timestamp = new Date(Date.now()).getTime();
   return jwt.sign({ sub: user.id, iat: timestamp }, config.JWT_SECRET, {
-    expiresIn: "1h"
+    expiresIn: "1h",
   });
 }
 
@@ -20,7 +20,7 @@ exports.signup = async (req, res, next) => {
   const { email, password, name } = pick(req.body, [
     "email",
     "password",
-    "name"
+    "name",
   ]);
 
   if (!email || !password) {
@@ -35,7 +35,7 @@ exports.signup = async (req, res, next) => {
     if (!isNil(user)) {
       return res.status(422).send({
         status: 422,
-        message: "User with this e-mail already exists."
+        message: "User with this e-mail already exists.",
       });
     }
 
@@ -48,7 +48,7 @@ exports.signup = async (req, res, next) => {
       name,
       // activateToken: newUserActivateToken,
       activated: false,
-      loginIPAddresses: [userIP]
+      loginIPAddresses: [userIP],
     });
 
     let { _id } = await newUser.save();
@@ -74,7 +74,7 @@ exports.signup = async (req, res, next) => {
 
       return res.send({
         token: tokenForUser(newUser),
-        message: "Activation token has been sent to " + email
+        message: "Activation token has been sent to " + email,
       });
     });
   } catch (e) {
@@ -82,11 +82,11 @@ exports.signup = async (req, res, next) => {
   }
 };
 
-exports.signin = function(req, res, next) {
+exports.signin = function (req, res, next) {
   res.send({ token: tokenForUser(req.user) });
 };
 
-exports.sendActivationMail = function(req, res, next) {
+exports.sendActivationMail = function (req, res, next) {
   const timestamp = Date.now();
   const resendCooldown = 1000 * 60;
 
@@ -112,17 +112,20 @@ exports.sendActivationMail = function(req, res, next) {
         newActivationToken
       );
 
-      mailer.messages().send(activationEmail, err => {
+      mailer.messages().send(activationEmail, (err, body) => {
         if (err) {
           return res.status(400).send({
             status: 400,
             message:
-              "There was a problem with sending your new activation e-mail."
+              "There was a problem with sending your new activation e-mail.",
+            err,
           });
         }
 
+        console.log(body);
+
         return res.send({
-          message: `New activation email has been sent to: ${req.user.email}`
+          message: `New activation email has been sent to: ${req.user.email}`,
         });
       });
     });
@@ -134,12 +137,12 @@ exports.sendActivationMail = function(req, res, next) {
 
     return res.status(400).send({
       status: 400,
-      message: `You have to wait ${formattedTime} minutes before next attempt.`
+      message: `You have to wait ${formattedTime} minutes before next attempt.`,
     });
   }
 };
 
-exports.activateAccount = function(req, res, next) {
+exports.activateAccount = function (req, res, next) {
   const { token } = pick(req.body, ["token"]);
 
   User.findOneAndUpdate(
@@ -149,10 +152,10 @@ exports.activateAccount = function(req, res, next) {
     .then(() => {
       res.send({ message: "Account has been activated." });
     })
-    .catch(e => {
+    .catch((e) => {
       res.status(400).send({
         message: "Unable to activate account or token is expired.",
-        status: 400
+        status: 400,
       });
     });
 };
