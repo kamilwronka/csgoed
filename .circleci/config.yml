@@ -1,0 +1,15 @@
+version: 2
+jobs:
+  build:
+    machine: true
+    steps:
+      - checkout
+      # start proprietary DB using private Docker image
+      # with credentials stored in the UI
+      - run: |
+          docker login -u $DOCKER_ID -p $DOCKER_PASS
+      # build the application image
+      - run: docker build --rm -f Dockerfile -t $DOCKER_ID/csgoed-backend .
+
+      # deploy the image
+      - run: docker push $DOCKER_ID/csgoed-backend
