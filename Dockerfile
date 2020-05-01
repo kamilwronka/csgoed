@@ -1,4 +1,4 @@
-FROM node:14.10-alpine as build-deps
+FROM node:14.1.0-alpine
 
 ENV NODE_ENV=production
 
