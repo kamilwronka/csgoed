@@ -22,13 +22,13 @@ const verifyToken = require("./src/auth/socketIOStrategy");
 
 const whitelist = ["http://localhost:3000", "https://csgoed.com"];
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     if (whitelist.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
-  }
+  },
 };
 
 require("./src/db/mongoose");
@@ -36,11 +36,11 @@ require("./src/db/mongoose");
 app.enable("trust proxy");
 app.use(morgan("combined"));
 app.use(bodyParser.json({ type: "*/*" }));
-app.use(cors(production ? corsOptions : {}));
+app.use({});
 
 router(app);
 
-io.on("connection", async socket => {
+io.on("connection", async (socket) => {
   const token = socket.handshake.query.token;
   const user = await verifyToken(token);
 
