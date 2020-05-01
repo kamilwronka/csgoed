@@ -36,7 +36,7 @@ require("./src/db/mongoose");
 app.enable("trust proxy");
 app.use(morgan("combined"));
 app.use(bodyParser.json({ type: "*/*" }));
-app.use({});
+app.use(cors({}));
 
 router(app);
 
