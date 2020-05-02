@@ -1,5 +1,0 @@
-module.exports = {
-	JWT_SECRET: "asdasdasdasdasdasdasd",
-	CERT: "/home/user/certificates/csgoed_com.crt",
-	PRIVATE_KEY: "/home/user/certificates/namecheap-privatekey.pem"
-}
