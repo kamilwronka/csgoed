@@ -38,7 +38,7 @@ exports.teamspeak = ({ name, ownerId }) => {
             serverPort: String(ports[0]),
             name: name,
             game: "teamspeak",
-            ip,
+            ip: "185.238.72.227",
           },
         },
       };
